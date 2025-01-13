@@ -1,0 +1,19 @@
+{
+  "aws_access_key_id": "",
+  "aws_secret_access_key": "",
+  "region": "",
+  "s3": {
+    "default_bucket": ""
+  },
+  "lambda": {
+    "functions": {
+      "processData": "your-lambda-function-name-1",
+      "sendNotifications": "your-lambda-function-name-2"
+    }
+  },
+  "rds": {
+    "resource_arn": "your-rds-cluster-arn",
+    "secret_arn": "your-secret-manager-arn",
+    "database_name": "your-database-name"
+  }
+}
