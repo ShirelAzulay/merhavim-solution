@@ -14,7 +14,7 @@ import * as path from 'path';
                 }
 
                 const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-                console.log('Loaded Config:', config); // Optional: Log loaded config
+                console.log('Loaded Config:', config);
                 return { 'aws-config': config };
             },
         },

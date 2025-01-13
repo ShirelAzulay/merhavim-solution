@@ -4,7 +4,7 @@ import { AwsController } from './aws.controller';
 import { ConfigModule } from '../config.module';
 
 @Module({
-  imports: [ConfigModule], // Import ConfigModule
+  imports: [ConfigModule],
   providers: [AwsService],
   controllers: [AwsController],
 })

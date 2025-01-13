@@ -1,4 +1,3 @@
-
 import { Controller, Post, Body, Get } from '@nestjs/common';
 import { AwsService } from './aws.service';
 
@@ -22,7 +21,18 @@ export class AwsController {
     }
   }
 
-  // Invoke a predefined Lambda function
+  @Post('download-from-default-bucket')
+  async downloadFromDefaultBucket(@Body() body: { key: string; destinationPath: string }) {
+    try {
+      const defaultBucket = this.awsService.getDefaultBucket();
+      await this.awsService.downloadFromS3(defaultBucket, body.key, body.destinationPath);
+      return { message: `File '${body.key}' downloaded to '${body.destinationPath}' successfully` };
+    } catch (error) {
+      console.error('Error downloading from S3:', error);
+      return { error: 'Failed to download file from S3' };
+    }
+  }
+
   @Post('invoke-default-lambda')
   async invokeDefaultLambda() {
     try {
