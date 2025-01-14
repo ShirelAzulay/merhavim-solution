@@ -1,11 +1,12 @@
 import { Controller, Post, Body, Get } from '@nestjs/common';
 import { AwsService } from './aws.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Controller('aws')
 export class AwsController {
   constructor(private readonly awsService: AwsService) {}
 
-  // Upload a predefined file to the default bucket
   @Post('upload-to-default-bucket')
   async uploadToDefaultBucket() {
     try {
@@ -33,13 +34,46 @@ export class AwsController {
     }
   }
 
-  @Post('invoke-default-lambda')
-  async invokeDefaultLambda() {
+  @Post('download-folder-from-s3')
+  async downloadFolderFromS3(@Body() body: { key: string; destinationFolder: string }) {
     try {
-      const functionName = this.awsService.getDefaultLambdaFunction();
+      const defaultBucket = this.awsService.getDefaultBucket();
+      await this.awsService.downloadFolderFromS3(defaultBucket, body.key, body.destinationFolder);
+      return { message: `Folder '${body.key}' downloaded to '${body.destinationFolder}' successfully` };
+    } catch (error) {
+      console.error('Error downloading folder from S3:', error);
+      return { error: 'Failed to download folder from S3' };
+    }
+  }
+
+  @Post('perform-ocr-on-folder')
+  async performOCROnFolder(@Body() body: { folderPath: string }) {
+    try {
+      const files = fs.readdirSync(body.folderPath).filter((file) => file.endsWith('.pdf'));
+      const defaultBucket = this.awsService.getDefaultBucket();
+      const results = [];
+
+      for (const file of files) {
+        const filePath = path.join(body.folderPath, file);
+        await this.awsService.uploadToS3(defaultBucket, `ocr/${file}`, fs.readFileSync(filePath));
+        const ocrResult = await this.awsService.performOCR(defaultBucket, `ocr/${file}`);
+        results.push({ file, ocrResult });
+      }
+
+      return { message: 'OCR completed for all files', results };
+    } catch (error) {
+      console.error('Error performing OCR on folder:', error);
+      return { error: 'Failed to perform OCR on folder' };
+    }
+  }
+
+  @Post('invoke-default-lambda')
+  async invokeDefaultLambda(): Promise<any> {
+    try {
+      const functionName: string = this.awsService.getDefaultLambdaFunction();
       const payload = { action: 'test-action', timestamp: new Date().toISOString() };
 
-      const result = await this.awsService.invokeLambda(functionName, payload);
+      const result: any = await this.awsService.invokeLambda(functionName, payload);
       return { message: `Lambda function '${functionName}' invoked successfully`, result };
     } catch (error) {
       console.error('Error invoking Lambda:', error);
@@ -47,12 +81,11 @@ export class AwsController {
     }
   }
 
-  // Query Aurora database with a predefined SQL query
+
   @Post('query-default-aurora')
   async queryDefaultAurora() {
     try {
-      const sql = 'SELECT * FROM your_table LIMIT 10;'; // Replace with a real SQL query
-
+      const sql = 'SELECT * FROM your_table LIMIT 10;';
       const result = await this.awsService.queryAurora(sql);
       return { message: 'Aurora query executed successfully', result };
     } catch (error) {
@@ -61,7 +94,6 @@ export class AwsController {
     }
   }
 
-  // Example for a GET route to check the default configuration
   @Get('config')
   async getConfig() {
     try {
