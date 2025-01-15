@@ -46,51 +46,41 @@ export class AwsController {
     }
   }
 
-  @Post('perform-ocr-on-folder')
-  async performOCROnFolder(@Body() body: { folderPath: string }) {
+  @Post('process-id')
+  async processId(@Body() body: { id: string }) {
     try {
-      const files = fs.readdirSync(body.folderPath).filter((file) => file.endsWith('.pdf'));
+      const { id } = body;
       const defaultBucket = this.awsService.getDefaultBucket();
-      const results = [];
+      const folderKey = `${id}/`;
 
-      for (const file of files) {
-        const filePath = path.join(body.folderPath, file);
-        await this.awsService.uploadToS3(defaultBucket, `ocr/${file}`, fs.readFileSync(filePath));
-        const ocrResult = await this.awsService.performOCR(defaultBucket, `ocr/${file}`);
-        results.push({ file, ocrResult });
+      // Step 1: List files in the S3 folder
+      const files = await this.awsService.listFilesInS3Folder(defaultBucket, folderKey);
+      let fullText = '';
+
+      // Step 2: Process each file
+      for (const fileKey of files) {
+        const extension = fileKey.split('.').pop()?.toLowerCase();
+
+        if (['mp3', 'mp4', 'wav'].includes(extension!)) {
+          // Transcribe audio files
+          console.log(`Meanwhile Do Nothing-Transcribing audio file: ${fileKey}`);
+/*          const transcript = await this.awsService.transcribeAudio(defaultBucket, fileKey);
+          fullText += `\n\n--- Transcript of ${fileKey} ---\n${transcript}`;*/
+        } else if (extension === 'pdf') {
+          // Perform OCR on PDF files
+          const ocrResult = await this.awsService.performOCR(defaultBucket, fileKey);
+          fullText += `\n\n--- OCR of ${fileKey} ---\n${ocrResult}`;
+        }
       }
 
-      return { message: 'OCR completed for all files', results };
+      // Step 3: Summarize the text using an LLM
+      const summary = await this.awsService.summarizeWithClaude(fullText);
+
+      // Step 4: Return the summary
+      return { message: 'Processing completed successfully', summary };
     } catch (error) {
-      console.error('Error performing OCR on folder:', error);
-      return { error: 'Failed to perform OCR on folder' };
-    }
-  }
-
-  @Post('invoke-default-lambda')
-  async invokeDefaultLambda(): Promise<any> {
-    try {
-      const functionName: string = this.awsService.getDefaultLambdaFunction();
-      const payload = { action: 'test-action', timestamp: new Date().toISOString() };
-
-      const result: any = await this.awsService.invokeLambda(functionName, payload);
-      return { message: `Lambda function '${functionName}' invoked successfully`, result };
-    } catch (error) {
-      console.error('Error invoking Lambda:', error);
-      return { error: 'Failed to invoke Lambda function' };
-    }
-  }
-
-
-  @Post('query-default-aurora')
-  async queryDefaultAurora() {
-    try {
-      const sql = 'SELECT * FROM your_table LIMIT 10;';
-      const result = await this.awsService.queryAurora(sql);
-      return { message: 'Aurora query executed successfully', result };
-    } catch (error) {
-      console.error('Error querying Aurora:', error);
-      return { error: 'Failed to query Aurora database' };
+      console.error('Error processing ID:', error);
+      return { error: 'Failed to process ID' };
     }
   }
 
