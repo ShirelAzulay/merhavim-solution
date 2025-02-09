@@ -1,0 +1,334 @@
+/* index.css */
+/* Modern Design System */
+:root {
+  /* Color Palette */
+  --primary-color: #0066cc;
+  --secondary-color: #72c0ff;
+  --background-color: #f5f7f9;
+  --surface-color: #ffffff;
+  --text-primary: #16191f;
+  --text-secondary: #5f6b7a;
+  --text-light: #ffffff;
+  --border-color: #e9ebed;
+  --error-color: #d91515;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-s: 8px;
+  --spacing-m: 16px;
+  --spacing-l: 24px;
+  --spacing-xl: 32px;
+  
+  /* Shadows */
+  --shadow-small: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.08);
+  --shadow-large: 0 8px 16px rgba(0, 0, 0, 0.12);
+  
+  /* Border Radius */
+  --border-radius-s: 4px;
+  --border-radius-m: 8px;
+  --border-radius-l: 12px;
+  --border-radius-xl: 16px;
+}
+
+/* Base Styles */
+body {
+  direction: rtl;
+  text-align: right;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-primary);
+}
+
+/* Modern Header */
+.app-header {
+  background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+  box-shadow: var(--shadow-medium);
+  padding: var(--spacing-m) var(--spacing-xl);
+}
+
+.app-header button {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: var(--border-radius-m);
+  transition: all 0.2s ease;
+}
+
+.app-header button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Wizard Container */
+.wizard-wrapper {
+  max-width: 1400px;
+  margin: var(--spacing-xl) auto;
+  padding: 0 var(--spacing-xl);
+}
+
+/* Step Container */
+.step-container {
+  background-color: var(--surface-color);
+  border-radius: var(--border-radius-l);
+  box-shadow: var(--shadow-small);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-l);
+  transition: all 0.3s ease;
+}
+
+.step-container:hover {
+  box-shadow: var(--shadow-medium);
+}
+
+/* Form Elements */
+.awsui-input-container {
+  margin-bottom: var(--spacing-m);
+}
+
+.awsui-input {
+  border-radius: var(--border-radius-m);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.awsui-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
+/* Buttons */
+.awsui-button {
+  border-radius: var(--border-radius-m);
+  transition: all 0.2s ease;
+}
+
+.awsui-button-primary {
+  background-color: var(--primary-color);
+}
+
+.awsui-button-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-small);
+}
+
+/* Wizard Navigation */
+.awsui_wizard-navigation {
+  background-color: var(--surface-color);
+  border-radius: var(--border-radius-l);
+  padding: var(--spacing-m);
+  box-shadow: var(--shadow-small);
+}
+
+/* Status Indicators */
+.awsui-status-info {
+  border-radius: var(--border-radius-m);
+  padding: var(--spacing-s) var(--spacing-m);
+  background-color: rgba(0, 102, 204, 0.1);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.step-container {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Fix for Cloudscape wizard navigation buttons */
+.awsui_button {
+  min-width: 80px !important;
+  padding: 0 20px !important;
+}
+
+/* Force button text to be visible */
+.awsui_button-text {
+  display: inline-block !important;
+  opacity: 1 !important;
+  white-space: nowrap !important;
+  visibility: visible !important;
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Ensure wizard navigation text is visible */
+.awsui_wizard-navigation {
+  min-width: 300px !important;
+}
+
+.awsui_wizard-navigation button {
+  min-width: 100px !important;
+}
+
+/* Override button styles */
+.awsui_wizard-navigation button[class*="awsui_button"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.awsui_wizard-navigation button[class*="awsui_button"] span {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  border: 0 !important;
+  display: inline-block !important;
+}
+
+/* Fix for RTL button text */
+[dir="rtl"] .awsui_wizard-navigation button[class*="awsui_button"] span {
+  text-align: center !important;
+}
+
+/* Ensure the wizard content doesn't overlap with header */
+.awsui_wizard-navigation {
+  margin-top: 10px !important;
+}
+
+/* Main wizard container */
+.wizard-wrapper {
+  min-height: calc(100vh - 120px);
+  position: relative;
+  padding: 20px;
+}
+
+.awsui_wizard-navigation button {
+  max-width: 100%; /* Prevent the button from exceeding its container */
+  width: auto; /* Let the button size itself based on its content */
+  padding: 0 16px; /* Standard padding for buttons */
+  box-sizing: border-box; /* Ensure padding is included in the total width */
+}
+
+.awsui_wizard-navigation button.awsui_button-primary {
+  background-color: #0073e6; /* Primary blue color */
+  border-radius: 4px; /* Keep the button looking neat */
+  min-width: 80px; /* Prevent the button from being too small */
+}
+
+.awsui_wizard-navigation {
+  display: flex; /* Ensure the wizard navigation items are flexed */
+  justify-content: space-between; /* Space buttons appropriately */
+  align-items: center; /* Align buttons properly */
+  padding: 8px 16px; /* Add padding to the navigation bar */
+}
+[dir="rtl"] .awsui_wizard-navigation {
+  flex-direction: row-reverse; /* Reverse the button order for RTL */
+}
+
+[dir="rtl"] .awsui_wizard-navigation button {
+  margin-left: 8px; /* Add spacing between buttons */
+  margin-right: 0; /* Remove spacing on the right */
+}
+
+/* Custom container class */
+.step-container {
+  min-height: calc(100vh - 280px) !important; /* Reduced height */
+  height: calc(100vh - 280px) !important;
+  width: 95% !important;
+  max-width: 1400px !important;
+  margin: 10px auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+}
+
+/* Style the wizard steps container in top right */
+ul[class*="awsui_refresh"] {
+  background-color: white !important;
+  padding: 20px !important;
+  border-radius: 8px !important;
+  border: 1px solid #e9ebed !important;
+  margin: 16px !important;
+  width: 180px !important;
+  float: right !important;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Remove all other wizard step styles */
+
+/* Document viewer styles */
+.step-container.expanded {
+  height: auto !important;
+  min-height: calc(100vh - 100px) !important;
+}
+
+.patient-info {
+  padding: var(--spacing-m);
+  background-color: var(--surface-color);
+  border-radius: var(--border-radius-m);
+  box-shadow: var(--shadow-small);
+  margin-bottom: var(--spacing-m);
+}
+
+.document-controls {
+  position: sticky;
+  top: 80px;
+  z-index: 100;
+  background: transparent; /* Made background transparent */
+  padding: var(--spacing-m) 0; /* Removed horizontal padding */
+  margin: 0; /* Removed any margins */
+  box-shadow: none; /* Removed shadow */
+}
+
+.document-viewer {
+  height: calc(100vh - 250px); /* Adjusted height to be taller */
+  border-radius: var(--border-radius-m);
+  overflow: hidden;
+  box-shadow: var(--shadow-medium);
+  background-color: var(--surface-color);
+  margin-top: var(--spacing-m); /* Reduced top margin */
+}
+
+/* Ensure the iframe takes up the full space */
+.document-viewer iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Style the progress bar */
+.awsui-progress-bar {
+  cursor: pointer;
+}
+
+/* Add this to your existing CSS */
+[data-success-text] {
+  color: #037f0c !important; /* Green color for success messages */
+}
+
+/* Add these styles for success message */
+.awsui-form-field [class*="awsui-form-field-success"] {
+  color: #037f0c !important;
+  display: block !important;
+  margin-top: 4px !important;
+}
+
+.awsui-form-field-success {
+  color: #037f0c !important;
+}
+
+/* Style the AI response textarea */
+.ai-response-textarea {
+  width: 100% !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+}
+
+/* Make the textarea container take full width */
+.ai-response-field {
+  width: 100% !important;
+}
+
+/* Make the textarea itself take full width */
+.ai-response-field [class*="awsui_input"] {
+  width: 100% !important;
+  max-width: none !important;
+}
