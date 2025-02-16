@@ -12,7 +12,11 @@ import {
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
 import { convertPdfToImages } from '../components/pdfHelper';
-import config from '../config';
+import settings from '../settings.json';
+
+const SYSTEM_INSTRUCTIONS = "...";
+const PROMPT = "...";
+const MAX_TOKENS = 4096;
 
 export default function Step3({ patientID }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -25,12 +29,6 @@ export default function Step3({ patientID }) {
   const [pdfPageCounts, setPdfPageCounts] = useState({});
   
   const [transcriptContent, setTranscriptContent] = useState('');
-
-  const [settings, setSettings] = useState({
-    system_instructions: '',
-    prompt: '',
-    max_tokens: 4096
-  });
 
   const getPDFPageCount = async (url) => {
     try {
@@ -175,21 +173,18 @@ export default function Step3({ patientID }) {
       }
 
       console.log(`Sending request with ${transcriptContents.length} transcripts and ${images.length} images`);
-      const payload = {
-        system_instructions: settings.system_instructions,
-        prompt: settings.prompt,
-        images: images,
-        max_tokens: settings.max_tokens
-      };
-      console.log('Step3 analysis payload:', payload);
-
       const response = await fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/bedrock', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': process.env.REACT_APP_API_KEY || ''
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          system_instructions: settings.system_instructions,
+          prompt: `${settings.prompt}\n\n${allTranscripts}`,
+          images: images,
+          max_tokens: settings.max_tokens
+        })
       });
 
       if (!response.ok) {
@@ -249,22 +244,6 @@ export default function Step3({ patientID }) {
   const handleTranscriptDismiss = (index) => {
     setAvailableTranscripts(prev => prev.filter((_, i) => i !== index));
   };
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await fetch(`${config.API_URL}/settings`);
-        const data = await response.json();
-        console.log('Step3 fetched settings:', data);
-        setSettings(data);
-      } catch (error) {
-        console.error('Error fetching settings:', error);
-        setError('שגיאה בטעינת הגדרות');
-      }
-    };
-    
-    fetchSettings();
-  }, []);
 
   return (
     <Container 

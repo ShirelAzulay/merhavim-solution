@@ -21,7 +21,7 @@ import RecordingControls from '../components/RecordingControls';
 import TranscriptionSection from '../components/TranscriptionSection';
 import { startTranscription } from '../services/transcriptionService';
 import { convertPdfToImages } from '../components/pdfHelper';
-import config from '../config';
+import settings from '../settings.json';
 
 const FileList = ({ files }) => {
   return (
@@ -142,8 +142,7 @@ const TranscriptDisplay = ({ transcript, insight }) => {
   );
 };
 
-export default function Step1({ patientID, setPatientID, onValidationChange, onAddNewPatient, onExistingMedia, activeStepIndex, onRecordingComplete }) {
-  const [allowedNumbers, setAllowedNumbers] = useState([]);
+export default function Step1({ patientID, setPatientID, onValidationChange, onExistingMedia, activeStepIndex, onRecordingComplete }) {
   const [status, setStatus] = useState({ type: '', message: '' });
   const [isExistingPatient, setIsExistingPatient] = useState(false);
   const [showButton, setShowButton] = useState(false);
@@ -218,35 +217,6 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
   const [fileToDelete, setFileToDelete] = useState(null);
   const [isDeletingFile, setIsDeletingFile] = useState(false);
 
-  // Replace direct settings usage with the state variable
-  const [settings, setSettings] = useState({
-    system_instructions: '',
-    prompt: '',
-    max_tokens: 4096,
-    transcription_system_instructions: '',
-    transcription_prompt: '',
-    summary_system_instructions: '',
-    summary_prompt: ''
-  });
-
-  // Add this effect to fetch settings
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await fetch(`${config.API_URL}/settings`);
-        const data = await response.json();
-        console.log('Fetched settings:', data);  // Verify settings are fetched
-        setAllowedNumbers(data.allowedNumbers);
-        setSettings(data);
-      } catch (error) {
-        console.error('Error fetching settings:', error);
-        setError('שגיאה בטעינת הגדרות');
-      }
-    };
-    
-    fetchSettings();
-  }, []);
-
   // Add this function to handle saving
   const handleTranscriptSave = async (fileName, transcriptData) => {
     setIsSaving(true);
@@ -304,15 +274,6 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
     setAvailableRecordings([]);
   };
 
-  // Add useEffect to watch for patientID changes
-  useEffect(() => {
-    resetTranscriptionStates();
-    if (patientID) {
-      fetchAvailableRecordings();
-      fetchAvailableTranscripts();
-    }
-  }, [patientID]);
-
   const fetchAvailableRecordings = async () => {
     try {
       const response = await fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/files?' + 
@@ -329,15 +290,17 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
       if (response.ok) {
         const data = await response.json();
         setAvailableRecordings(data.files || []);
+        console.log('Available recordings:', data.files); // Debug log
       }
     } catch (error) {
+      // Only log to console, don't set error state
       console.error('Error fetching recordings:', error);
-      setError('שגיאה בטעינת רשימת ההקלטות');
     }
   };
 
   const fetchAvailableTranscripts = async () => {
     try {
+      console.log('Fetching transcripts for patient:', patientID);
       const response = await fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/files?' + 
         new URLSearchParams({
           patientId: patientID,
@@ -351,13 +314,25 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched transcripts:', data);
         setAvailableTranscripts(data.files || []);
+      } else {
+        // Only log to console, don't set error state
+        console.error('Failed to fetch transcripts:', response.status);
       }
     } catch (error) {
+      // Only log to console, don't set error state
       console.error('Error fetching transcripts:', error);
-      setError('שגיאה בטעינת רשימת התמלולים');
     }
   };
+
+  // Add this useEffect to load transcripts when patient exists
+  useEffect(() => {
+    if (isExistingPatient && patientID) {
+      console.log('Loading transcripts for existing patient');
+      fetchAvailableTranscripts();
+    }
+  }, [isExistingPatient, patientID]);
 
   const handleTranscribe = async (fileName) => {
     setIsTranscribing(true);
@@ -472,52 +447,67 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
     setError('');
     
     try {
-      // First check for MP4 files
-      const mp4Url = 'https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/files?' + 
+      // Check if directory exists by trying to list files
+      const directoryResponse = await fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/files?' + 
         new URLSearchParams({
           patientId: id,
-          fileName: '*.mp4'
-        }).toString();
+          fileName: '*'  // List all files to check if directory exists
+        }).toString(), {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.REACT_APP_API_KEY || '',
+            'Accept': 'application/json'
+          }
+        });
 
-      console.log('Checking MP4 files at:', mp4Url);
-      const mp4Response = await fetch(mp4Url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.REACT_APP_API_KEY || '',
-          'Accept': 'application/json'
-        }
-      });
-
-      console.log('MP4 response status:', mp4Response.status);
-      let mp4Data = { files: [] };
-      
-      if (mp4Response.ok) {
-        mp4Data = await mp4Response.json();
-        console.log('MP4 files found:', mp4Data);
-      } else {
-        const errorText = await mp4Response.text();
-        console.log('MP4 response error:', errorText);
+      if (!directoryResponse.ok) {
+        // Directory doesn't exist - new patient
+        setStatus({ type: 'info', message: 'מטופל חדש - ניתן להוסיף אותו למערכת' });
+        setIsExistingPatient(false);
+        setShowButton(true);
+        onValidationChange(false);
+        return;
       }
 
-      // Then check for PDF files
-      const pdfUrl = 'https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/files?' + 
-        new URLSearchParams({
-          patientId: id,
-          fileName: '*.pdf'
-        }).toString();
+      // Directory exists, now check for specific file types
+      const [mp4Response, pdfResponse] = await Promise.all([
+        fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/files?' + 
+          new URLSearchParams({
+            patientId: id,
+            fileName: '*.mp4'
+          }).toString(), {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.REACT_APP_API_KEY || '',
+              'Accept': 'application/json'
+            }
+          }),
+        fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/files?' + 
+          new URLSearchParams({
+            patientId: id,
+            fileName: '*.pdf'
+          }).toString(), {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.REACT_APP_API_KEY || '',
+              'Accept': 'application/json'
+            }
+          })
+      ]);
 
-      console.log('Checking PDF files at:', pdfUrl);
-      const pdfResponse = await fetch(pdfUrl, {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.REACT_APP_API_KEY || '',
-          'Accept': 'application/json'
-        }
-      });
+      const [mp4Data, pdfData] = await Promise.all([
+        mp4Response.json(),
+        pdfResponse.json()
+      ]);
 
-      console.log('PDF response status:', pdfResponse.status);
-      const pdfData = pdfResponse.ok ? await pdfResponse.json() : { files: [] };
-      console.log('PDF files found:', pdfData);
+      // Directory exists but no files yet
+      if (!mp4Data.files?.length && !pdfData.files?.length) {
+        setStatus({ type: 'info', message: 'נמצא תיק מטופל ללא קבצים' });
+        setIsExistingPatient(true);
+        setShowButton(true);
+        onValidationChange(true);
+        return;
+      }
 
       // Update state with found files
       if (pdfData.files?.length > 0) {
@@ -536,6 +526,7 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
           )
         );
         setExistingAudioFiles(mp4Files.filter(Boolean));
+        setAvailableRecordings(mp4Data.files);
       }
 
       setPdfUrl(pdfData.files?.[0]?.url || '');
@@ -545,19 +536,19 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
         video: Boolean(mp4Data.files?.length)
       });
 
-      if (pdfData.files?.length || mp4Data.files?.length) {
-        setIsExistingPatient(true);
-      }
+      setIsExistingPatient(true);
+      setStatus({ type: 'success', message: 'נמצאו קבצים למטופל' });
+      onValidationChange(true);
 
-      onExistingMedia(
-        mp4Data.files?.[0]?.url || null,
-        null,
-        pdfData.files?.[0]?.url || null
-      );
+      // Also fetch transcripts here
+      await fetchAvailableTranscripts();
 
     } catch (error) {
       console.error('Error checking existing files:', error);
       setError('שגיאה בטעינת קבצים קיימים');
+      setIsExistingPatient(false);
+      setShowButton(true);
+      onValidationChange(false);
     } finally {
       setIsLoadingMedia(false);
       setDisablePatientInput(false);
@@ -568,47 +559,6 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
     const value = detail.value.trim();
     setPatientID(value);
     setStatus({ type: '', message: '' });
-    setPdfUrl('');
-    setVideoUrl('');
-    setFilesFound({ pdf: false, video: false });
-    setPdfLoaded(false);
-    setVideoLoaded(false);
-    setDisablePatientInput(false);
-    setExistingFiles([]);
-    setExistingAudioFiles([]);
-
-    if (!value) {
-      setShowButton(false);
-      onValidationChange(false);
-      return;
-    }
-
-    const parsedValue = Number(value);
-    if (isNaN(parsedValue)) {
-      setStatus({ type: 'error', message: 'מספר מזהה אינו חוקי' });
-      setShowButton(false);
-      onValidationChange(false);
-      return;
-    }
-
-    const exists = allowedNumbers.includes(parsedValue);
-    setIsExistingPatient(exists);
-    setShowButton(true);
-    
-    if (exists) {
-      setStatus({ type: 'success', message: 'מספר מזהה נמצא במערכת.' });
-      checkExistingFiles(parsedValue);
-      onValidationChange(true);  // Set validation to true when patient exists
-    } else {
-      setStatus({ type: 'info', message: 'מספר מזהה אינו קיים במערכת' });
-      onValidationChange(false);
-    }
-
-    console.log('Validation state after change:', {
-      value,
-      exists,
-      isValid: exists
-    });
   };
 
   // Event handlers for media load events
@@ -620,6 +570,56 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
   const handleAudioLoaded = () => {
     setVideoLoaded(true);
     maybeEnableInput();
+  };
+
+  const handleAudioFileChange = async ({ detail }) => {
+    const file = detail.value[0];
+    if (!file) {
+      setAudioFileError('');
+      setSelectedAudioFiles([]);
+      return;
+    }
+
+    setSelectedAudioFiles(detail.value);
+    setAudioFileError('');
+
+    try {
+      console.log('Starting audio file upload...', file);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64File = reader.result.split(',')[1];
+        
+        console.log('Sending upload request for audio file...');
+        const response = await fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.REACT_APP_API_KEY || '',
+          },
+          body: JSON.stringify({
+            id: patientID,
+            file: base64File,
+            fileName: file.name,
+            contentType: 'video/mp4',
+            overwrite: true
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to upload audio file');
+        }
+
+        console.log('Audio file uploaded successfully');
+        await fetchAvailableRecordings();  // Refresh the recordings list
+        setStatus({ type: 'success', message: 'הקלטה הועלתה בהצלחה' });
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading audio file:', error);
+      setAudioFileError('שגיאה בהעלאת הקובץ');
+      setSelectedAudioFiles([]);
+    }
   };
 
   const handleFileChange = ({ detail }) => {
@@ -641,25 +641,6 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
     setSelectedFiles([file]);
     // Automatically upload the file when it's selected
     uploadFile(file);
-  };
-
-  const handleAudioFileChange = ({ detail }) => {
-    const files = detail.value;
-    setAudioFileError('');
-    
-    if (!files || files.length === 0) {
-      setSelectedAudioFiles([]);
-      return;
-    }
-
-    const file = files[0];
-    if (!file.type.includes('mp4')) {
-      setAudioFileError('יש להעלות קובץ MP4 בלבד');
-      setSelectedAudioFiles([]);
-      return;
-    }
-
-    setSelectedAudioFiles([file]);
   };
 
   const uploadFile = async (file) => {
@@ -733,23 +714,10 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
         throw new Error('Failed to create patient directory');
       }
 
-      const settingsResponse = await fetch('http://localhost:3001/update-settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ newId: patientID }),
-      });
-
-      if (!settingsResponse.ok) {
-        throw new Error('Failed to update settings');
-      }
-
       setStatus({ type: 'success', message: 'תיק מטופל נוצר בהצלחה' });
       setIsExistingPatient(true);
       onValidationChange(true);
-      onAddNewPatient(Number(patientID));
-      setAllowedNumbers(prev => [...prev, Number(patientID)]);
+      setShowButton(true);
     } catch (error) {
       console.error('Error:', error);
       setStatus({ type: 'error', message: 'שגיאה ביצירת תיק מטופל' });
@@ -777,23 +745,6 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
         throw new Error('Failed to delete patient directory');
       }
 
-      // Update settings.json to remove the patient ID
-      const settingsResponse = await fetch('http://localhost:3001/delete-patient', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ patientId: Number(patientID) })
-      });
-
-      if (!settingsResponse.ok) {
-        throw new Error('Failed to update settings');
-      }
-
-      // Remove from allowed numbers in local state
-      const updatedNumbers = allowedNumbers.filter(num => num !== Number(patientID));
-      setAllowedNumbers(updatedNumbers);
-
       // Reset states
       setPatientID('');
       setPdfUrl('');
@@ -813,25 +764,6 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
       setShowDeleteModal(false);
     }
   };
-
-  // Add this effect to handle file visibility
-  useEffect(() => {
-    if (patientID && isExistingPatient) {
-      checkExistingFiles(patientID);
-    }
-  }, [patientID, isExistingPatient, activeStepIndex]);
-
-  // Add this effect near your other useEffects
-  useEffect(() => {
-    if (patientID) {
-      const parsedValue = Number(patientID);
-      if (!isNaN(parsedValue)) {
-        setShowButton(true);
-        const exists = allowedNumbers.includes(parsedValue);
-        setIsExistingPatient(exists);
-      }
-    }
-  }, []); // Run only on mount
 
   // Add this handler near your other handlers
   const handleRecordingUpdate = async (url) => {
@@ -857,21 +789,18 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
     setError('');
 
     try {
-      const payload = {
-        system_instructions: settings.transcription_system_instructions,
-        prompt: settings.transcription_prompt + currentTranscript,
-        images: [],
-        max_tokens: settings.max_tokens
-      };
-      console.log('Transcription analysis payload:', payload);  // Verify payload
-
       const response = await fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/bedrock', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': process.env.REACT_APP_API_KEY || ''
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          system_instructions: settings.transcription_system_instructions,
+          prompt: settings.transcription_prompt + currentTranscript,
+          images: [],
+          max_tokens: settings.max_tokens
+        })
       });
 
       if (!response.ok) {
@@ -904,18 +833,6 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
     setCurrentTranscript(transcriptText);
     setInsights('');
   };
-
-  // Add this new useEffect
-  useEffect(() => {
-    console.log('Step1 validation state:', {
-      isStep1Valid: typeof onValidationChange === 'function' ? 'function' : onValidationChange,
-      patientID,
-      showButton,
-      isExistingPatient,
-      allowedNumbers,
-      isPatientAllowed: patientID ? allowedNumbers.includes(Number(patientID)) : false
-    });
-  }, [onValidationChange, patientID, showButton, isExistingPatient, allowedNumbers]);
 
   // Add handler for PDF selection
   const handlePDFSelection = (option) => {
@@ -973,7 +890,12 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
         max_tokens: settings.max_tokens
       };
 
-      console.log('Sending payload:', payload);  // Add this for debugging
+      console.log('Sending payload structure:', {
+        system_instructions_length: payload.system_instructions.length,
+        prompt_length: payload.prompt.length,
+        number_of_images: images.length,
+        max_tokens: payload.max_tokens
+      });
 
       const response = await fetch('https://fu9nj81we9.execute-api.eu-west-1.amazonaws.com/testing/bedrock', {
         method: 'POST',
@@ -1173,6 +1095,55 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
     ),
   };
 
+  // Update handleLoadPatient to reset transcription states
+  const handleLoadPatient = () => {
+    if (!patientID.trim()) {
+      setStatus({ type: 'error', message: 'יש להזין מספר מזהה' });
+      return;
+    }
+    
+    const parsedValue = Number(patientID);
+    if (isNaN(parsedValue)) {
+      setStatus({ type: 'error', message: 'מספר מזהה אינו חוקי' });
+      return;
+    }
+
+    // Reset states before checking
+    setPdfUrl('');
+    setVideoUrl('');
+    setFilesFound({ pdf: false, video: false });
+    setPdfLoaded(false);
+    setVideoLoaded(false);
+    setDisablePatientInput(false);
+    setExistingFiles([]);
+    setExistingAudioFiles([]);
+    
+    // Reset transcription-related states
+    setCurrentTranscript('');
+    setInsights('');
+    setError('');
+    setIsTranscribing(false);
+    setIsAnalyzing(false);
+    setIsSaving(false);
+    setAvailableTranscripts([]);
+    setAvailableRecordings([]);
+    
+    checkExistingFiles(parsedValue);
+    setShowButton(true);
+    setIsExistingPatient(true);
+    onValidationChange(true);
+  };
+
+  // Keep only this useEffect for logging if needed
+  useEffect(() => {
+    console.log('Step1 validation state:', {
+      isStep1Valid: typeof onValidationChange === 'function' ? 'function' : onValidationChange,
+      patientID,
+      showButton,
+      isExistingPatient
+    });
+  }, [onValidationChange, patientID, showButton, isExistingPatient]);
+
   return (
     <Container 
       header={<h2>פרטי מטופל</h2>} 
@@ -1189,13 +1160,24 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
     >
       <SpaceBetween direction="vertical" size="l" style={{ flex: 1 }}>
         <div>
-          <FormField label="הכנס מספר מטופל" description="הקלד/י מספר מזהה מטופל תקין כאן">
-            <Input 
-              value={patientID} 
-              onChange={handleChange} 
-              placeholder="מזהה מטופל"
-              disabled={disablePatientInput}
-            />
+          <FormField 
+            label="הכנס מספר מטופל" 
+            description="הקלד/י מספר מזהה מטופל תקין כאן"
+          >
+            <SpaceBetween direction="horizontal" size="xs">
+              <Input 
+                value={patientID} 
+                onChange={handleChange} 
+                placeholder="מזהה מטופל"
+                disabled={disablePatientInput}
+              />
+              <Button
+                variant="normal"
+                onClick={handleLoadPatient}
+              >
+                טען תיק מטופל
+              </Button>
+            </SpaceBetween>
           </FormField>
           {status.message && (
             <div style={{ marginTop: '8px' }}>
@@ -1235,7 +1217,7 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
                 >
                   רענן קבצים
                 </Button>
-              </>
+              </> 
             )}
           </SpaceBetween>
         )}
@@ -1243,7 +1225,7 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
         {isExistingPatient && (
           <SpaceBetween direction="vertical" size="l" style={{ flex: 1, overflow: 'auto' }}>
             <div style={{ flex: 0 }}>
-              <h3>מסמך PDF</h3>
+              <h3>מסמכי PDF</h3>
               <SpaceBetween direction="vertical" size="s">
                 <FormField 
                   errorText={fileError}
@@ -1284,28 +1266,9 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
             </div>
 
             <div style={{ flex: 0 }}>
-              <h3>הקלטת שיחה</h3>
+              <h3>הקלטות שיחה</h3>
               <SpaceBetween direction="vertical" size="s">
-                <FormField>
-                  <FileUpload
-                    onChange={handleAudioFileChange}
-                    value={selectedAudioFiles}
-                    i18nStrings={{
-                      uploadButtonText: e => "העלה הקלטה",
-                      dropzoneText: e => "גרור קובץ הקלטה לכאן",
-                      removeFileAriaLabel: e => "הסר קובץ",
-                      limitShowFewer: "הצג פחות",
-                      limitShowMore: "הצג יותר",
-                      errorIconAriaLabel: "שגיאה"
-                    }}
-                    accept=".mp4"
-                    multiple={false}
-                    showFileLastModified
-                    showFileSize
-                    tokenLimit={1}
-                    constraintText="העלה קובץ הקלטה בלבד"
-                  />
-                </FormField>
+
 
                 {filesFound.video && (
                   <TokenGroup
@@ -1424,7 +1387,7 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
                     onClick={handleAnalyzeTranscription}
                     loading={isAnalyzing}
                   >
-                    הפק תובנות  
+                    נתח שיחה 
                   </Button>
 
                   {error && (
@@ -1438,7 +1401,7 @@ export default function Step1({ patientID, setPatientID, onValidationChange, onA
                       <Textarea
                         value={insights}
                         readOnly
-                        rows={10}
+                        rows={20}
                         style={{
                           backgroundColor: '#f8f8f8',
                           lineHeight: '1.5'
